@@ -1,7 +1,7 @@
 import { ThemeProvider } from 'next-themes';
 import { HelmetProvider } from '@packages/react-helmet-async';
 import { BrowserRouter } from 'react-router-dom';
-import { ModuleProvider } from "./providers/module-provider/module-provider";
+import { ModuleProvider } from "./providers/module-provider";
 
 const { BASE_URL } = import.meta.env;
 
