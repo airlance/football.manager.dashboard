@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import { ScreenLoader } from '@/components/screen-loader';
 
+const TeamModule = lazy(() => import('@/modules/team'));
 const MainModule = lazy(() => import('@/modules/main'));
 
 export function ModuleProvider() {
@@ -30,7 +31,9 @@ export function ModuleProvider() {
             <Route
                 path="/*"
                 element={
-                    <h1>Vite + React</h1>
+                    <Suspense fallback={<ScreenLoader />}>
+                        <TeamModule />
+                    </Suspense>
                 }
             />
         </Routes>
