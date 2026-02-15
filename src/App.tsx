@@ -1,24 +1,25 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { DarkModeProvider } from "./darkMode";
-import { AvatarProvider } from "./avatar/AvatarProvider.tsx";
-import { ChatLayout } from "./ChatLayout.tsx";
-import { WebcamComponent } from "./video/WebcamComponent.tsx";
+import { ThemeProvider } from 'next-themes';
+import { HelmetProvider } from '@packages/react-helmet-async';
+import { BrowserRouter } from 'react-router-dom';
+import { ModuleProvider } from "./providers/module-provider/module-provider";
 
-function App() {
+const { BASE_URL } = import.meta.env;
+
+export default function App() {
     return (
-        <DarkModeProvider initialMode="light">
-            <AvatarProvider initialAvatar="/images/avatar/avatar-12.jpg" initialUsername="Travis Fuller">
-                <BrowserRouter>
-                    <Routes>
-                        <Route path="/messenger" element={<ChatLayout />} />
-                        <Route path="/messenger/:contactId" element={<ChatLayout />} />
-                        <Route path="/video" element={<WebcamComponent />} />
-                        <Route path="/" element={<Navigate to="/messenger" replace />} />
-                    </Routes>
+        <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            storageKey="vite-theme"
+            enableSystem
+            disableTransitionOnChange
+            enableColorScheme
+        >
+            <HelmetProvider>
+                <BrowserRouter basename={BASE_URL}>
+                    <ModuleProvider />
                 </BrowserRouter>
-            </AvatarProvider>
-        </DarkModeProvider>
-    );
+            </HelmetProvider>
+        </ThemeProvider>
+    )
 }
-
-export default App
