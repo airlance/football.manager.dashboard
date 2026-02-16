@@ -1,13 +1,10 @@
 import { ScrollArea } from "@/components/scroll-area";
 import { Button } from "@/components/button";
 import { Sparkles } from "lucide-react";
-import { AskAI } from "./ask-ai";
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useLayout } from "./use-layout";
 
 export function ContentView() {
-    const [isAskAIOpen, setIsAskAIOpen] = useState(false);
     const { isMailViewExpanded, isMobile } = useLayout();
     return (
         <>
@@ -24,19 +21,15 @@ export function ContentView() {
                     <ScrollArea className="h-[calc(100vh-10rem)] grid content-center">
                         <div className="flex flex-col items-center justify-center">
                             <div className="flex gap-3">
-                                <Button variant="outline" onClick={() => { setIsAskAIOpen(true); }}>
+                                <Button variant="outline" onClick={() => { console.log('click'); }}>
                                     <Sparkles />
-                                    Ask Ai
+                                    Test
                                 </Button>
                             </div>
                         </div>
                     </ScrollArea>
                 </div>
             </div>
-            <AskAI
-                open={isAskAIOpen}
-                onOpenChange={setIsAskAIOpen}
-            />
         </>
     );
 }
