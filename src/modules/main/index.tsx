@@ -3,6 +3,10 @@ import { SectionLayout } from "@/modules/main/layout/components/section-layout.t
 import { HomePage } from "./pages/home/home/page";
 import { InboxPage } from "./pages/inbox/inbox/page";
 import { InboxSocialFeedPage } from "./pages/inbox/social-feed/page";
+import { InboxNewsPage } from "./pages/inbox/news/page";
+import { LeaguesInFocusPage } from "./pages/inbox/leagues-in-focus/page";
+import { AroundTheWorldPage } from "./pages/inbox/around-the-world/page";
+import { TransferWindowNewsPage } from "./pages/inbox/transfer-window-news/page";
 import { SquadOverviewPage } from "./pages/squad/overview/page";
 import { SquadPlannerIndexPage } from "./pages/planner/squad-planner/page";
 import { DynamicsOverviewPage } from "./pages/dynamics/overview/page";
@@ -50,10 +54,10 @@ export default function MainModule() {
                     <Route index element={<Navigate to="inbox" replace />} />
                     <Route path="inbox" element={<InboxPage />} />
                     <Route path="social-feed" element={<InboxSocialFeedPage />} />
-                    <Route path="news" element={<InboxSocialFeedPage />} />
-                    <Route path="leagues-in-focus" element={<InboxSocialFeedPage />} />
-                    <Route path="around-the-world" element={<InboxSocialFeedPage />} />
-                    <Route path="transfer-window-news" element={<InboxSocialFeedPage />} />
+                    <Route path="news" element={<InboxNewsPage />} />
+                    <Route path="leagues-in-focus" element={<LeaguesInFocusPage />} />
+                    <Route path="around-the-world" element={<AroundTheWorldPage />} />
+                    <Route path="transfer-window-news" element={<TransferWindowNewsPage />} />
                 </Route>
                 <Route path="home" element={<SectionLayout menu={getHomeItems()}/>}>
                     <Route index element={<Navigate to="profile" replace />} />
