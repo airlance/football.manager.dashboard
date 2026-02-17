@@ -1,5 +1,5 @@
 import { type ReactNode, type CSSProperties, useEffect, useMemo, useState } from 'react';
-import { LayoutContext } from "./use-layout";
+import { LayoutContext, type HeaderData } from "./use-layout";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { TooltipProvider } from '@/components/tooltip';
 import { useLocalStorage } from "@/hooks/use-local-storage";
@@ -15,6 +15,7 @@ export function LayoutProvider({ children, style: customStyle, bodyClassName = '
     const isMobile = useIsMobile();
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useLocalStorage('sidebar-collapsed', sidebarCollapsed);
     const [isMailViewExpanded, setIsMailViewExpanded] = useState(false);
+    const [headerData, setHeaderData] = useState<HeaderData | undefined>();
 
     const defaultCssVariables = {
         '--sidebar-width': '240px',
@@ -76,10 +77,12 @@ export function LayoutProvider({ children, style: customStyle, bodyClassName = '
                 isMobile,
                 sidebarCollapsed: isSidebarCollapsed,
                 isMailViewExpanded,
+                headerData,
                 showMailView,
                 hideMailView,
                 toggleSidebar,
                 toggleMailView,
+                setHeaderData,
             }}
         >
             <div
