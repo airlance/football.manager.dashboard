@@ -11,117 +11,136 @@ interface PositionSlotProps {
     onDragStart: (e: React.DragEvent<HTMLDivElement>, player: Player) => void;
 }
 
+// ── Duty colours / abbreviations ─────────────────────────────────────────────
 const DUTY_COLOR: Record<string, string> = {
-    Attack: '#8b5cf6', attack: '#8b5cf6',
-    Support: '#27ae60', support: '#27ae60',
+    Attack: '#9b6eec', attack: '#9b6eec',
+    Support: '#2ecc71', support: '#2ecc71',
     Defend: '#e74c3c', defend: '#e74c3c',
 };
-
 const DUTY_ABBR: Record<string, string> = {
     Attack: 'At', attack: 'At',
     Support: 'Su', support: 'Su',
     Defend: 'De', defend: 'De',
 };
 
-// Determines highlight level for a dragging player dropped on this slot
-function getCompatibility(
-    draggingPlayer: Player,
-    slot: GridPosition,
-): 'natural' | 'accomplished' | 'incompatible' | null {
-    if (!draggingPlayer) return null;
-    const pos = draggingPlayer.position;
+// ── Role background colours (matching FM dark palette) ───────────────────────
+function roleBg(label: string, isGK: boolean): string {
+    if (isGK) return '#3d2b10';
+    if (['WB','DL','DR','DC','CD','BPD'].includes(label)) return '#1a2a44';
+    if (['DM','BWM','CM','MC'].includes(label)) return '#1e2236';
+    return '#1e1e36'; // AM / attackers
+}
 
-    // GK can only go to GK slot; GK slot only accepts GK
-    if (slot.label === 'GK') {
-        return pos === 'GK' ? 'natural' : 'incompatible';
-    }
-    if (pos === 'GK') {
-        return 'incompatible';
-    }
+// ── Compatibility check ───────────────────────────────────────────────────────
+type Compat = 'natural' | 'accomplished' | 'incompatible';
 
-    if (slot.naturalFor.some(p =>
-        pos === p || pos.startsWith(p) || p.startsWith(pos)
-    )) return 'natural';
+function getCompat(player: Player, slot: GridPosition): Compat {
+    const pos = player.position;
+    if (slot.label === 'GK') return pos === 'GK' ? 'natural' : 'incompatible';
+    if (pos === 'GK') return 'incompatible';
 
-    if (slot.accomplishedFor.some(p =>
-        pos === p || pos.startsWith(p) || p.startsWith(pos)
-    )) return 'accomplished';
+    const matches = (codes: string[]) =>
+        codes.some(c => pos === c || pos.startsWith(c) || c.startsWith(pos));
 
+    if (matches(slot.naturalFor)) return 'natural';
+    if (matches(slot.accomplishedFor)) return 'accomplished';
     return 'incompatible';
 }
 
-// Ghost shirt SVG (transparent, outlined)
-function GhostShirt({ isGK = false }: { isGK?: boolean }) {
+const COMPAT_RING: Record<Compat, string> = {
+    natural:      'rgba(74, 222, 128, 0.9)',
+    accomplished: 'rgba(251, 146, 60, 0.9)',
+    incompatible: 'rgba(248, 113, 113, 0.7)',
+};
+const COMPAT_LABEL: Record<Compat, string> = {
+    natural:      'Natural',
+    accomplished: 'Accom.',
+    incompatible: '✕',
+};
+
+// ── Ghost shirt SVG ───────────────────────────────────────────────────────────
+function GhostShirt({ isGK }: { isGK: boolean }) {
     return (
-        <svg width="52" height="52" viewBox="0 0 40 40">
+        <svg width="56" height="56" viewBox="0 0 40 40">
             <path
                 d="M8 12 L4 18 L10 20 L10 34 L30 34 L30 20 L36 18 L32 12 L26 10 Q20 14 14 10 Z"
-                fill={isGK ? 'rgba(180,60,40,0.18)' : 'rgba(255,255,255,0.10)'}
-                stroke={isGK ? 'rgba(180,60,40,0.55)' : 'rgba(255,255,255,0.40)'}
+                fill={isGK ? 'rgba(150,60,40,0.18)' : 'rgba(255,255,255,0.09)'}
+                stroke={isGK ? 'rgba(180,80,50,0.5)' : 'rgba(255,255,255,0.38)'}
                 strokeWidth="1"
             />
-            <path d="M14 10 Q20 16 26 10" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1" />
-            <path d="M8 12 L4 18 L10 20 L10 16" fill="rgba(255,255,255,0.05)" />
-            <path d="M32 12 L36 18 L30 20 L30 16" fill="rgba(255,255,255,0.05)" />
+            <path d="M14 10 Q20 16 26 10" fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="1" />
+            <path d="M8 12 L4 18 L10 20 L10 16" fill="rgba(255,255,255,0.04)" />
+            <path d="M32 12 L36 18 L30 20 L30 16" fill="rgba(255,255,255,0.04)" />
         </svg>
     );
 }
 
-// Real player shirt SVG
+// ── Real player shirt SVG ─────────────────────────────────────────────────────
 function PlayerShirt({ number, isGK }: { number: number; isGK: boolean }) {
-    const shirtColor = isGK ? '#c0392b' : '#1a1a1a';
+    // GK gets a teal/chequered feel, outfield get dark shirt
+    const fill = isGK ? '#1a7a6e' : '#1c1c2e';
+    const collar = isGK ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.25)';
+    const numColor = isGK ? '#ffffff' : '#f5a623';
+
     return (
-        <svg width="64" height="64" viewBox="0 0 40 40" style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.7))' }}>
+        <svg
+            width="68" height="68" viewBox="0 0 40 40"
+            style={{ filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.75))' }}
+        >
             <path
                 d="M8 12 L4 18 L10 20 L10 34 L30 34 L30 20 L36 18 L32 12 L26 10 Q20 14 14 10 Z"
-                fill={shirtColor} stroke="rgba(255,255,255,0.18)" strokeWidth="0.5"
+                fill={fill}
+                stroke="rgba(255,255,255,0.18)"
+                strokeWidth="0.6"
             />
-            <path d="M14 10 Q20 16 26 10" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1" />
-            <path d="M8 12 L4 18 L10 20 L10 16" fill="rgba(255,255,255,0.08)" />
-            <path d="M32 12 L36 18 L30 20 L30 16" fill="rgba(255,255,255,0.08)" />
-            <text x="20" y="26" textAnchor="middle" dominantBaseline="middle"
-                  fontSize="11" fontWeight="bold" fill="#f39c12" fontFamily="Georgia,serif">
+            {isGK && (
+                // chequered pattern hint
+                <path
+                    d="M10 20 L10 34 L20 34 L20 20 Z M20 27 L30 27 L30 34 L20 34 Z"
+                    fill="rgba(255,255,255,0.06)"
+                />
+            )}
+            <path d="M14 10 Q20 16 26 10" fill="none" stroke={collar} strokeWidth="1" />
+            <path d="M8 12 L4 18 L10 20 L10 16" fill="rgba(255,255,255,0.07)" />
+            <path d="M32 12 L36 18 L30 20 L30 16" fill="rgba(255,255,255,0.07)" />
+            <text
+                x="20" y="26"
+                textAnchor="middle" dominantBaseline="middle"
+                fontSize="11" fontWeight="bold"
+                fill={numColor}
+                fontFamily="Georgia, serif"
+            >
                 {number}
             </text>
         </svg>
     );
 }
 
-export function PositionSlot({ slot, player, draggingPlayer, onDrop, onDragStart }: PositionSlotProps) {
+// ── Main component ────────────────────────────────────────────────────────────
+export function PositionSlot({
+                                 slot, player, draggingPlayer, onDrop, onDragStart,
+                             }: PositionSlotProps) {
     const [isDragOver, setIsDragOver] = useState(false);
 
-    const compatibility = draggingPlayer ? getCompatibility(draggingPlayer, slot) : null;
+    const compat: Compat | null = draggingPlayer ? getCompat(draggingPlayer, slot) : null;
     const isGKSlot = slot.label === 'GK';
     const isGKPlayer = player?.position === 'GK';
 
-    // Border/background highlight during drag
-    let highlightStyle: React.CSSProperties = {};
-    let ringColor = 'transparent';
-
-    if (compatibility === 'natural') {
-        ringColor = 'rgba(74, 222, 128, 0.85)';
-        highlightStyle = { boxShadow: `0 0 0 2px ${ringColor}, 0 0 12px rgba(74,222,128,0.25)` };
-    } else if (compatibility === 'accomplished') {
-        ringColor = 'rgba(251, 146, 60, 0.85)';
-        highlightStyle = { boxShadow: `0 0 0 2px ${ringColor}, 0 0 12px rgba(251,146,60,0.2)` };
-    } else if (compatibility === 'incompatible') {
-        ringColor = 'rgba(248, 113, 113, 0.7)';
-        highlightStyle = { boxShadow: `0 0 0 2px ${ringColor}` };
-    }
-
-    if (isDragOver && compatibility !== 'incompatible') {
-        highlightStyle = {
-            ...highlightStyle,
-            backgroundColor: 'rgba(255,255,255,0.08)',
-        };
-    }
+    // Card outer ring / glow during drag
+    const ringColor = compat ? COMPAT_RING[compat] : 'transparent';
+    const ringStyle: React.CSSProperties = compat
+        ? {
+            boxShadow: `0 0 0 2px ${ringColor}, 0 0 14px ${ringColor.replace('0.9', '0.3').replace('0.7', '0.2')}`,
+            borderRadius: 7,
+        }
+        : {};
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
-        e.dataTransfer.dropEffect = compatibility === 'incompatible' ? 'none' : 'move';
+        e.dataTransfer.dropEffect = compat === 'incompatible' ? 'none' : 'move';
         setIsDragOver(true);
     };
-
+    const handleDragLeave = () => setIsDragOver(false);
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.stopPropagation();
@@ -129,17 +148,15 @@ export function PositionSlot({ slot, player, draggingPlayer, onDrop, onDragStart
         onDrop(e, slot.id);
     };
 
-    const dutyColor = player
-        ? (DUTY_COLOR[player.duty] ?? '#888')
-        : (DUTY_COLOR[slot.defaultDuty] ?? '#888');
+    // Resolved values (use player's role/duty if assigned, else slot defaults)
+    const duty     = player ? player.duty     : slot.defaultDuty;
+    const role     = player ? player.role     : slot.defaultRole;
+    const dutyClr  = DUTY_COLOR[duty]  ?? '#888';
+    const dutyAbbr = DUTY_ABBR[duty]   ?? 'Su';
+    const bg       = roleBg(slot.label, isGKSlot);
 
-    const dutyAbbr = player
-        ? (DUTY_ABBR[player.duty] ?? 'Su')
-        : (DUTY_ABBR[slot.defaultDuty] ?? 'Su');
-
-    const roleLabel = player ? player.role : slot.defaultRole;
     const shortName = player
-        ? (player.name.length > 11 ? player.name.split(' ').pop()! : player.name)
+        ? (player.name.length > 12 ? player.name.split(' ').pop()! : player.name)
         : null;
 
     return (
@@ -147,76 +164,84 @@ export function PositionSlot({ slot, player, draggingPlayer, onDrop, onDragStart
             style={{
                 position: 'absolute',
                 left: `${slot.x}%`,
-                top: `${slot.y}%`,
+                top:  `${slot.y}%`,
                 transform: 'translate(-50%, -50%)',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 zIndex: isDragOver ? 20 : 10,
-                transition: 'all 0.15s ease',
+                // slight opacity when dragging this specific player
+                opacity: draggingPlayer && player?.id === draggingPlayer.id ? 0.4 : 1,
+                transition: 'opacity 0.15s',
             }}
             onDragOver={handleDragOver}
-            onDragLeave={() => setIsDragOver(false)}
+            onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
-            {/* Shirt */}
+            {/* ── Shirt ── */}
             {player ? (
                 <div
                     draggable
-                    onDragStart={(e) => onDragStart(e, player)}
-                    style={{ cursor: 'grab', transition: 'transform 0.15s' }}
-                    className="hover:scale-110"
+                    onDragStart={e => onDragStart(e, player)}
+                    className="transition-transform hover:scale-105"
+                    style={{ cursor: 'grab' }}
                 >
                     <PlayerShirt number={player.number} isGK={isGKPlayer} />
                 </div>
             ) : (
-                <div style={{ opacity: draggingPlayer ? 0.55 : 0.35 }}>
+                <div style={{ opacity: draggingPlayer ? 0.6 : 0.38, pointerEvents: 'none' }}>
                     <GhostShirt isGK={isGKSlot} />
                 </div>
             )}
 
-            {/* FM-style card */}
+            {/* ── FM card ── */}
             <div
                 style={{
                     marginTop: -2,
+                    minWidth: 104,
+                    maxWidth: 128,
                     borderRadius: 6,
                     overflow: 'hidden',
-                    minWidth: 100,
-                    maxWidth: 120,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-                    ...highlightStyle,
-                    transition: 'box-shadow 0.15s',
+                    ...ringStyle,
+                    transition: 'box-shadow 0.12s',
+                    cursor: player ? 'grab' : 'default',
+                    // dim slot card (not the shirt) while player drags away
+                    pointerEvents: player && draggingPlayer?.id === player.id ? 'none' : 'auto',
                 }}
+                draggable={!!player}
+                onDragStart={player ? e => onDragStart(e, player) : undefined}
             >
-                {/* Role-Duty row */}
+                {/* Role – Duty row */}
                 <div style={{
-                    background: isGKSlot
-                        ? 'rgba(80,50,20,0.95)'
-                        : player
-                            ? 'rgba(30,30,50,0.95)'
-                            : 'rgba(30,40,60,0.88)',
-                    padding: '3px 8px',
+                    background: bg,
+                    padding: '4px 8px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    borderBottom: '1px solid rgba(255,255,255,0.08)',
+                    borderBottom: '1px solid rgba(255,255,255,0.07)',
+                    gap: 4,
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#d4d4d4', fontFamily: 'monospace' }}>
-                            {roleLabel}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{
+                            fontSize: 12, fontWeight: 700, color: '#c8c8d8',
+                            fontFamily: 'monospace', letterSpacing: '0.02em',
+                        }}>
+                            {role}
                         </span>
-                        <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>-</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: dutyColor, fontFamily: 'monospace' }}>
+                        <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>-</span>
+                        <span style={{
+                            fontSize: 12, fontWeight: 700, color: dutyClr, fontFamily: 'monospace',
+                        }}>
                             {dutyAbbr}
                         </span>
                     </div>
-                    <ChevronDown size={10} style={{ color: 'rgba(255,255,255,0.4)', flexShrink: 0, marginLeft: 2 }} />
+                    <ChevronDown size={11} color="rgba(255,255,255,0.35)" />
                 </div>
 
-                {/* Player name row */}
+                {/* Pick Player / name row */}
                 <div style={{
-                    background: 'rgba(15,20,35,0.92)',
-                    padding: '3px 8px',
+                    background: 'rgba(10,12,22,0.94)',
+                    padding: '4px 8px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -224,38 +249,49 @@ export function PositionSlot({ slot, player, draggingPlayer, onDrop, onDragStart
                 }}>
                     {player ? (
                         <>
-                            <span style={{
-                                fontSize: 12, color: '#f0f0f0', fontWeight: 600,
-                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                fontFamily: 'system-ui, sans-serif',
-                            }}>
-                                {shortName}
-                            </span>
-                            <ChevronDown size={10} style={{ color: 'rgba(255,255,255,0.4)', flexShrink: 0 }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
+                                {/* Small person icon */}
+                                <svg width="10" height="10" viewBox="0 0 10 10" style={{ flexShrink: 0, opacity: 0.5 }}>
+                                    <circle cx="5" cy="3" r="2" fill="rgba(255,255,255,0.7)" />
+                                    <path d="M1 10 Q1 7 5 7 Q9 7 9 10" fill="rgba(255,255,255,0.7)" />
+                                </svg>
+                                <span style={{
+                                    fontSize: 12, color: '#eaeaf5', fontWeight: 600,
+                                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                    fontFamily: 'system-ui, sans-serif',
+                                }}>
+                                    {shortName}
+                                </span>
+                            </div>
+                            <ChevronDown size={11} color="rgba(255,255,255,0.35)" />
                         </>
                     ) : (
                         <>
-                            <span style={{ fontSize: 11, color: 'rgba(200,200,220,0.5)', fontStyle: 'italic' }}>
+                            <span style={{
+                                fontSize: 11, color: 'rgba(200,200,220,0.45)',
+                                fontFamily: 'system-ui, sans-serif', fontStyle: 'italic',
+                            }}>
                                 Pick Player
                             </span>
-                            <ChevronDown size={10} style={{ color: 'rgba(255,255,255,0.25)', flexShrink: 0 }} />
+                            <ChevronDown size={11} color="rgba(255,255,255,0.2)" />
                         </>
                     )}
                 </div>
             </div>
 
-            {/* Compatibility label shown during drag */}
-            {draggingPlayer && compatibility && (
+            {/* ── Compat label (shown only during drag) ── */}
+            {compat && (
                 <div style={{
-                    marginTop: 3,
+                    marginTop: 4,
                     fontSize: 9,
-                    fontWeight: 700,
-                    letterSpacing: '0.05em',
-                    color: compatibility === 'natural' ? '#4ade80' : compatibility === 'accomplished' ? '#fb923c' : '#f87171',
+                    fontWeight: 800,
+                    letterSpacing: '0.06em',
                     textTransform: 'uppercase',
-                    textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+                    color: COMPAT_RING[compat],
+                    textShadow: '0 1px 4px rgba(0,0,0,0.9)',
+                    pointerEvents: 'none',
                 }}>
-                    {compatibility === 'natural' ? 'Natural' : compatibility === 'accomplished' ? 'Accomplished' : '✕'}
+                    {COMPAT_LABEL[compat]}
                 </div>
             )}
         </div>

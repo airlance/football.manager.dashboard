@@ -1,44 +1,38 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { Player } from './data';
-import { FORMATIONS, type Formation, DEFAULT_FORMATION } from './formations';
+import { FORMATIONS, DEFAULT_FORMATION } from './formations';
 
 export function useTactics(initialPlayers: Player[]) {
     const [formationKey, setFormationKey] = useState<string>(DEFAULT_FORMATION);
-    const [isCustom, setIsCustom] = useState(false);
-
-    // assignments: slotId -> Player
+    // slotId -> Player
     const [assignments, setAssignments] = useState<Record<string, Player>>({});
 
     const formation = useMemo(() => FORMATIONS[formationKey], [formationKey]);
 
-    // ---------- helpers ----------
-    const getSlotForPlayer = (playerId: string): string | null => {
-        const entry = Object.entries(assignments).find(([, p]) => p.id === playerId);
-        return entry ? entry[0] : null;
-    };
-
-    // ---------- move / swap ----------
+    // ── Move / swap ─────────────────────────────────────────────────────────
     const movePlayer = useCallback((player: Player, toSlotId: string) => {
         setAssignments(prev => {
             const next = { ...prev };
 
-            // Remove player from current slot (if on pitch)
-            const fromSlot = Object.entries(next).find(([, p]) => p.id === player.id)?.[0];
+            // Find current slot of this player (if on pitch)
+            const fromSlot = Object.entries(next).find(([, p]) => p.id === player.id)?.[0] ?? null;
+
+            // If source existed, remove player from it
             if (fromSlot) delete next[fromSlot];
 
-            // If target slot has someone, swap
+            // If target has occupant AND player came from pitch → swap
             const occupant = next[toSlotId];
             if (occupant && fromSlot) {
                 next[fromSlot] = occupant;
             }
-            // If target slot has someone and player came from list, replace (target goes to bench)
-            // (no action needed — occupant just gets removed)
+            // If target has occupant and player from list → replace (occupant goes to bench)
 
             next[toSlotId] = player;
             return next;
         });
     }, []);
 
+    // ── Remove from pitch ───────────────────────────────────────────────────
     const removePlayer = useCallback((playerId: string) => {
         setAssignments(prev => {
             const next = { ...prev };
@@ -48,100 +42,98 @@ export function useTactics(initialPlayers: Player[]) {
         });
     }, []);
 
-    // ---------- auto-pick ----------
+    // ── Auto pick ───────────────────────────────────────────────────────────
     const autoPick = useCallback(() => {
-        const newAssignments: Record<string, Player> = {};
         const pool = [...initialPlayers];
 
-        const pop = (positions: string[]) => {
-            for (const pos of positions) {
+        const popBest = (naturalFor: string[], accomplishedFor: string[]): Player | undefined => {
+            // Try natural match first
+            for (const code of naturalFor) {
                 const idx = pool.findIndex(p =>
-                    p.position === pos ||
-                    p.position.startsWith(pos) ||
-                    pos.startsWith(p.position)
+                    p.position === code ||
+                    p.position.startsWith(code) ||
+                    code.startsWith(p.position),
+                );
+                if (idx !== -1) return pool.splice(idx, 1)[0];
+            }
+            // Then accomplished
+            for (const code of accomplishedFor) {
+                const idx = pool.findIndex(p =>
+                    p.position === code ||
+                    p.position.startsWith(code) ||
+                    code.startsWith(p.position),
                 );
                 if (idx !== -1) return pool.splice(idx, 1)[0];
             }
             return pool.shift();
         };
 
-        // GK first
-        formation.positions.forEach(slot => {
-            if (slot.label === 'GK') {
-                const gk = pool.find(p => p.position === 'GK');
-                if (gk) {
-                    newAssignments[slot.id] = gk;
-                    pool.splice(pool.indexOf(gk), 1);
-                }
-            }
-        });
+        const next: Record<string, Player> = {};
 
-        // Rest
+        // GK first
+        const gkSlot = formation.positions.find(s => s.label === 'GK');
+        if (gkSlot) {
+            const gk = pool.find(p => p.position === 'GK');
+            if (gk) { next[gkSlot.id] = gk; pool.splice(pool.indexOf(gk), 1); }
+        }
+
         formation.positions.forEach(slot => {
             if (slot.label === 'GK') return;
-            const p = pop([...slot.naturalFor, ...slot.accomplishedFor]);
-            if (p) newAssignments[slot.id] = p;
+            const p = popBest(slot.naturalFor, slot.accomplishedFor);
+            if (p) next[slot.id] = p;
         });
 
-        setAssignments(newAssignments);
-        setIsCustom(false);
+        setAssignments(next);
     }, [formation, initialPlayers]);
 
-    const clearPitch = useCallback(() => {
-        setAssignments({});
-        setIsCustom(false);
-    }, []);
+    // ── Clear ───────────────────────────────────────────────────────────────
+    const clearPitch = useCallback(() => setAssignments({}), []);
 
-    // ---------- formation change ----------
+    // ── Formation change ────────────────────────────────────────────────────
     const handleFormationChange = useCallback((newKey: string) => {
         const newFormation = FORMATIONS[newKey];
-        const pool = [...initialPlayers];
-        const currentOnPitch = Object.values(assignments);
-        // Prefer already-on-pitch players
-        const priorityPool = [
-            ...currentOnPitch,
-            ...initialPlayers.filter(p => !currentOnPitch.find(cp => cp.id === p.id)),
-        ];
 
-        const newAssignments: Record<string, Player> = {};
-        const remaining = [...priorityPool];
+        // Pool: prefer currently-on-pitch players, then rest
+        const onPitch = Object.values(assignments);
+        const rest = initialPlayers.filter(p => !onPitch.find(op => op.id === p.id));
+        const pool = [...onPitch, ...rest];
 
-        const pop = (positions: string[]) => {
-            for (const pos of positions) {
-                const idx = remaining.findIndex(p =>
-                    p.position === pos || p.position.startsWith(pos) || pos.startsWith(p.position)
+        const popBest = (naturalFor: string[], accomplishedFor: string[]): Player | undefined => {
+            for (const code of naturalFor) {
+                const idx = pool.findIndex(p =>
+                    p.position === code || p.position.startsWith(code) || code.startsWith(p.position),
                 );
-                if (idx !== -1) return remaining.splice(idx, 1)[0];
+                if (idx !== -1) return pool.splice(idx, 1)[0];
             }
-            return remaining.shift();
+            for (const code of accomplishedFor) {
+                const idx = pool.findIndex(p =>
+                    p.position === code || p.position.startsWith(code) || code.startsWith(p.position),
+                );
+                if (idx !== -1) return pool.splice(idx, 1)[0];
+            }
+            return pool.shift();
         };
 
-        // GK first
-        newFormation.positions.forEach(slot => {
-            if (slot.label === 'GK') {
-                const gk = remaining.find(p => p.position === 'GK');
-                if (gk) {
-                    newAssignments[slot.id] = gk;
-                    remaining.splice(remaining.indexOf(gk), 1);
-                }
-            }
-        });
+        const next: Record<string, Player> = {};
 
+        const gkSlot = newFormation.positions.find(s => s.label === 'GK');
+        if (gkSlot) {
+            const gk = pool.find(p => p.position === 'GK');
+            if (gk) { next[gkSlot.id] = gk; pool.splice(pool.indexOf(gk), 1); }
+        }
         newFormation.positions.forEach(slot => {
             if (slot.label === 'GK') return;
-            const p = pop([...slot.naturalFor, ...slot.accomplishedFor]);
-            if (p) newAssignments[slot.id] = p;
+            const p = popBest(slot.naturalFor, slot.accomplishedFor);
+            if (p) next[slot.id] = p;
         });
 
         setFormationKey(newKey);
-        setAssignments(newAssignments);
-        setIsCustom(false);
+        setAssignments(next);
     }, [assignments, initialPlayers]);
 
     return {
         formation,
         formationKey,
-        isCustom,
         assignments,
         handleFormationChange,
         movePlayer,

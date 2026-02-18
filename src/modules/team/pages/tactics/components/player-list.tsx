@@ -5,7 +5,7 @@ import type { GridPosition } from '../formations';
 
 interface PlayerListProps {
     players: Player[];
-    gridAssignments: Record<string, Player>;   // slotId -> Player
+    assignments: Record<string, Player>;    // slotId -> Player
     positions: GridPosition[];
     onDragStart: (e: React.DragEvent<HTMLDivElement>, player: Player) => void;
     onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
@@ -14,38 +14,28 @@ interface PlayerListProps {
 }
 
 export function PlayerList({
-                               players,
-                               gridAssignments,
-                               positions,
-                               onDragStart,
-                               onDrop,
-                               onDragOver,
-                               onAssign,
+                               players, assignments, positions,
+                               onDragStart, onDrop, onDragOver, onAssign,
                            }: PlayerListProps) {
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        function handleClickOutside(e: MouseEvent) {
-            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        const handler = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node))
                 setOpenMenuId(null);
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    const assignedIds = new Set(Object.values(gridAssignments).map(p => p.id));
+    const assignedIds = new Set(Object.values(assignments).map(p => p.id));
 
-    const sortedPlayers = [...players].sort((a, b) => {
+    const sorted = [...players].sort((a, b) => {
         const aOn = assignedIds.has(a.id);
         const bOn = assignedIds.has(b.id);
-        if (aOn && !bOn) return -1;
-        if (!aOn && bOn) return 1;
-        return 0;
+        return aOn === bOn ? 0 : aOn ? -1 : 1;
     });
-
-    const getSlotOccupant = (slotId: string) => gridAssignments[slotId];
 
     return (
         <div
@@ -56,16 +46,16 @@ export function PlayerList({
             {/* Header */}
             <div className="flex items-center justify-between p-2 border-b border-zinc-800 bg-[#252836]">
                 <div className="font-bold text-white uppercase tracking-wider text-xs">Squad</div>
-                <div className="flex space-x-2 items-center">
+                <div className="flex items-center gap-2">
                     <button className="px-2 py-0.5 bg-[#374151] rounded text-white text-[10px] hover:bg-[#4b5563]">
                         Filter
                     </button>
-                    <div className="text-[10px] text-gray-400">{assignedIds.size} / 11</div>
+                    <span className="text-[10px] text-gray-400">{assignedIds.size} / 11</span>
                 </div>
             </div>
 
             {/* Column headers */}
-            <div className="grid grid-cols-[36px_56px_1fr_28px] gap-2 p-2 border-b border-zinc-800 bg-[#2b2f3e] text-gray-500 uppercase text-[10px]">
+            <div className="grid grid-cols-[32px_52px_1fr_28px] gap-2 p-2 border-b border-zinc-800 bg-[#2b2f3e] text-gray-500 uppercase text-[10px]">
                 <div className="text-center">PK</div>
                 <div className="text-center">Pos</div>
                 <div>Player</div>
@@ -73,106 +63,75 @@ export function PlayerList({
             </div>
 
             <div className="flex-1 overflow-y-auto pb-10">
-                {sortedPlayers.map((player) => {
-                    const isOnPitch = assignedIds.has(player.id);
-                    const isMenuOpen = openMenuId === player.id;
+                {sorted.map(player => {
+                    const isOn = assignedIds.has(player.id);
+                    const menuOpen = openMenuId === player.id;
 
                     return (
                         <div
                             key={player.id}
                             draggable
-                            onDragStart={(e) => onDragStart(e, player)}
-                            className={`grid grid-cols-[36px_56px_1fr_28px] gap-2 p-2 border-b border-zinc-800 hover:bg-[#2c3040] items-center cursor-grab select-none relative ${
-                                isOnPitch ? 'bg-[#1a4a2c]/20' : ''
-                            }`}
+                            onDragStart={e => onDragStart(e, player)}
+                            className={`grid grid-cols-[32px_52px_1fr_28px] gap-2 p-2 border-b border-zinc-800
+                                hover:bg-[#2c3040] items-center cursor-grab select-none relative
+                                ${isOn ? 'bg-[#1a4a2c]/25' : ''}`}
                         >
-                            {/* On-pitch indicator */}
-                            <div className={`text-center font-bold ${isOnPitch ? 'text-green-400' : 'text-gray-600'}`}>
-                                {isOnPitch ? '✓' : '-'}
+                            <div className={`text-center font-bold ${isOn ? 'text-green-400' : 'text-gray-600'}`}>
+                                {isOn ? '✓' : '-'}
                             </div>
-
-                            {/* Position */}
-                            <div className="text-center font-bold text-blue-300 truncate">
+                            <div className="text-center font-bold text-blue-300 truncate text-[10px]">
                                 {player.position}
                             </div>
-
-                            {/* Name */}
                             <div
-                                className="flex items-center space-x-2 truncate cursor-pointer hover:text-green-400 transition-colors"
+                                className="flex items-center gap-1.5 truncate cursor-pointer hover:text-green-400 transition-colors"
                                 onClick={() => (window.location.href = `/team/player/${player.id}`)}
                             >
-                                <div
-                                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
-                                        isOnPitch ? 'bg-green-600' : 'bg-gray-700'
-                                    }`}
-                                >
+                                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${isOn ? 'bg-green-600' : 'bg-gray-700'}`}>
                                     {player.number}
                                 </div>
-                                <span
-                                    className={`font-semibold truncate ${isOnPitch ? 'text-green-100' : 'text-white'}`}
-                                >
+                                <span className={`font-semibold truncate ${isOn ? 'text-green-100' : 'text-white'}`}>
                                     {player.name}
                                 </span>
                             </div>
-
-                            {/* Context menu button */}
                             <div className="flex justify-end">
                                 <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setOpenMenuId(isMenuOpen ? null : player.id);
-                                    }}
+                                    onClick={e => { e.stopPropagation(); setOpenMenuId(menuOpen ? null : player.id); }}
                                     className="p-1 hover:bg-white/10 rounded text-gray-500 hover:text-white transition-colors"
                                 >
                                     <MoreHorizontal size={14} />
                                 </button>
-
-                                {isMenuOpen && (
+                                {menuOpen && (
                                     <div
                                         ref={menuRef}
-                                        className="absolute right-8 top-0 z-50 w-64 bg-[#252836] border border-zinc-700 rounded-md shadow-2xl overflow-hidden flex flex-col"
+                                        className="absolute right-8 top-0 z-50 w-64 bg-[#252836] border border-zinc-700 rounded-md shadow-2xl overflow-hidden"
                                         style={{ transform: 'translateY(10px)' }}
                                     >
                                         <div className="px-3 py-2 bg-[#1b1e2b] border-b border-zinc-700 text-[10px] font-bold text-gray-400 uppercase">
                                             Assign Position
                                         </div>
                                         <div className="max-h-64 overflow-y-auto">
-                                            {positions.map((pos) => {
-                                                const occupant = getSlotOccupant(pos.id);
+                                            {positions.map(pos => {
+                                                const occupant = assignments[pos.id];
                                                 const isSelf = occupant?.id === player.id;
                                                 return (
                                                     <button
                                                         key={pos.id}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onAssign(player, pos.id);
-                                                            setOpenMenuId(null);
-                                                        }}
                                                         disabled={isSelf}
-                                                        className={`w-full text-left px-3 py-2 hover:bg-[#374151] flex items-center justify-between transition-colors border-b border-zinc-700/50 last:border-0 ${
-                                                            isSelf ? 'opacity-50 cursor-not-allowed' : ''
-                                                        }`}
+                                                        onClick={e => { e.stopPropagation(); onAssign(player, pos.id); setOpenMenuId(null); }}
+                                                        className={`w-full text-left px-3 py-2 hover:bg-[#374151] flex items-center justify-between
+                                                            transition-colors border-b border-zinc-700/50 last:border-0
+                                                            ${isSelf ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     >
-                                                        <div className="flex items-center space-x-2">
-                                                            <span className="font-bold text-yellow-500 w-10">
-                                                                {pos.label}
-                                                            </span>
-                                                            {occupant ? (
-                                                                <span className="text-white truncate">{occupant.name}</span>
-                                                            ) : (
-                                                                <span className="text-gray-500 italic">Empty</span>
-                                                            )}
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-yellow-500 w-10">{pos.label}</span>
+                                                            {occupant
+                                                                ? <span className="text-white truncate">{occupant.name}</span>
+                                                                : <span className="text-gray-500 italic">Empty</span>}
                                                         </div>
                                                         {!isSelf && (
-                                                            occupant ? (
-                                                                <div className="text-[9px] bg-blue-600/20 text-blue-400 px-1.5 rounded uppercase font-bold">
-                                                                    Swap
-                                                                </div>
-                                                            ) : (
-                                                                <div className="text-[9px] bg-green-600/20 text-green-400 px-1.5 rounded uppercase font-bold">
-                                                                    Assign
-                                                                </div>
-                                                            )
+                                                            <div className={`text-[9px] px-1.5 rounded uppercase font-bold ${occupant ? 'bg-blue-600/20 text-blue-400' : 'bg-green-600/20 text-green-400'}`}>
+                                                                {occupant ? 'Swap' : 'Assign'}
+                                                            </div>
                                                         )}
                                                     </button>
                                                 );
