@@ -6,6 +6,7 @@ import { FIELD_ROWS, FIELD_COLS, type GridPosition } from '../formations';
 interface PitchProps {
     gridAssignments: Record<string, Player>;
     positions: GridPosition[];
+    draggingPlayer: Player | null;
     onDragStart: (e: React.DragEvent<HTMLDivElement>, player: Player, source: 'pitch') => void;
     onDrop: (e: React.DragEvent<HTMLDivElement>, row: number, col: number) => void;
 }
@@ -15,48 +16,38 @@ function PitchMarkings() {
     return (
         <svg
             className="absolute inset-0 w-full h-full pointer-events-none"
-            viewBox="0 0 300 360"
+            viewBox="0 0 300 420"
             preserveAspectRatio="none"
         >
             {/* Outer border */}
-            <rect x="8" y="8" width="284" height="344" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" rx="2" />
+            <rect x="8" y="8" width="284" height="404" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" rx="2" />
 
             {/* Centre line */}
-            <line x1="8" y1="180" x2="292" y2="180" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" />
+            <line x1="8" y1="210" x2="292" y2="210" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" />
 
             {/* Centre circle */}
-            <circle cx="150" cy="180" r="38" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" />
-            <circle cx="150" cy="180" r="2.5" fill="rgba(255,255,255,0.35)" />
+            <circle cx="150" cy="210" r="38" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" />
+            <circle cx="150" cy="210" r="2.5" fill="rgba(255,255,255,0.35)" />
 
             {/* ── TOP HALF ── */}
-            {/* Penalty area top */}
             <rect x="75" y="8" width="150" height="72" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.2" />
-            {/* Goal area top */}
             <rect x="112" y="8" width="76" height="30" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
-            {/* Penalty spot top */}
             <circle cx="150" cy="62" r="2" fill="rgba(255,255,255,0.3)" />
-            {/* Penalty arc top */}
             <path d="M 110 80 A 38 38 0 0 0 190 80" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="1.2" />
-            {/* Goal top */}
             <rect x="124" y="3" width="52" height="10" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
 
             {/* ── BOTTOM HALF ── */}
-            {/* Penalty area bottom */}
-            <rect x="75" y="280" width="150" height="72" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.2" />
-            {/* Goal area bottom */}
-            <rect x="112" y="322" width="76" height="30" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
-            {/* Penalty spot bottom */}
-            <circle cx="150" cy="298" r="2" fill="rgba(255,255,255,0.3)" />
-            {/* Penalty arc bottom */}
-            <path d="M 110 280 A 38 38 0 0 1 190 280" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="1.2" />
-            {/* Goal bottom */}
-            <rect x="124" y="349" width="52" height="10" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
+            <rect x="75" y="340" width="150" height="72" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.2" />
+            <rect x="112" y="382" width="76" height="30" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+            <circle cx="150" cy="358" r="2" fill="rgba(255,255,255,0.3)" />
+            <path d="M 110 340 A 38 38 0 0 1 190 340" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="1.2" />
+            <rect x="124" y="409" width="52" height="10" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
 
             {/* Corner arcs */}
             <path d="M 8 20 A 10 10 0 0 1 20 8"   fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
             <path d="M 280 8 A 10 10 0 0 1 292 20" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
-            <path d="M 8 340 A 10 10 0 0 0 20 352" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
-            <path d="M 280 352 A 10 10 0 0 0 292 340" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
+            <path d="M 8 400 A 10 10 0 0 0 20 412" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
+            <path d="M 280 412 A 10 10 0 0 0 292 400" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
         </svg>
     );
 }
@@ -80,7 +71,7 @@ function GrassStripes({ rows }: { rows: number }) {
     );
 }
 
-export function Pitch({ gridAssignments, positions, onDragStart, onDrop }: PitchProps) {
+export function Pitch({ gridAssignments, positions, draggingPlayer, onDragStart, onDrop }: PitchProps) {
     const pitchRef = useRef<HTMLDivElement>(null);
 
     const cells = [];
@@ -97,6 +88,7 @@ export function Pitch({ gridAssignments, positions, onDragStart, onDrop }: Pitch
                     col={col}
                     player={player}
                     label={positionLabel}
+                    draggingPlayer={draggingPlayer}
                     onDrop={onDrop}
                     onDragStart={(e, p) => onDragStart(e, p, 'pitch')}
                 />
@@ -109,8 +101,9 @@ export function Pitch({ gridAssignments, positions, onDragStart, onDrop }: Pitch
             ref={pitchRef}
             className="relative w-full select-none"
             style={{
-                aspectRatio: '5/6',
-                maxWidth: 500,
+                /* Real football pitch ratio is roughly 105x68 meters = ~1.54:1 height:width */
+                aspectRatio: '68/105',
+                maxWidth: 460,
                 borderRadius: 12,
                 overflow: 'hidden',
                 boxShadow: '0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06)',

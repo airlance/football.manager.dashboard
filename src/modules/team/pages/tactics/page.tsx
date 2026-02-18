@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { SQUAD_PLAYERS, type Player } from './data';
 import { Pitch } from './components/pitch';
 import { PlayerList } from './components/player-list';
@@ -16,18 +17,26 @@ export function SetupPage() {
         clearPitch
     } = useTactics(SQUAD_PLAYERS);
 
+    // Track currently dragged player for cell highlight
+    const [draggingPlayer, setDraggingPlayer] = useState<Player | null>(null);
+
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, player: Player, source: 'list' | 'pitch') => {
         e.dataTransfer.setData('player', JSON.stringify(player));
         e.dataTransfer.setData('source', source);
+        setDraggingPlayer(player);
+    };
+
+    const handleDragEnd = () => {
+        setDraggingPlayer(null);
     };
 
     // Passed to List - handles removing player from pitch (drop to bench)
     const handleListDrop = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
+        setDraggingPlayer(null);
         try {
             const player = JSON.parse(e.dataTransfer.getData('player')) as Player;
             const source = e.dataTransfer.getData('source') as 'list' | 'pitch';
-
             if (source === 'pitch') {
                 removePlayer(player.id);
             }
@@ -38,9 +47,9 @@ export function SetupPage() {
 
     // Passed to Pitch - handles placing player on grid
     const handlePitchDrop = (e: React.DragEvent<HTMLDivElement>, row: number, col: number) => {
+        setDraggingPlayer(null);
         try {
             const player = JSON.parse(e.dataTransfer.getData('player')) as Player;
-            // movePlayer handles both new assignment and movement within grid
             movePlayer(player, row, col);
         } catch (error) {
             console.error("Drop error", error);
@@ -52,7 +61,10 @@ export function SetupPage() {
     };
 
     return (
-        <div className="flex flex-col h-screen bg-[#111318] text-white relative font-sans selection:bg-green-500/30">
+        <div
+            className="flex flex-col h-screen bg-[#111318] text-white relative font-sans selection:bg-green-500/30"
+            onDragEnd={handleDragEnd}
+        >
             <Helmet>
                 <title>Team Setup | Football Manager</title>
             </Helmet>
@@ -70,7 +82,7 @@ export function SetupPage() {
                                     className={`px-3 py-1 text-sm font-bold rounded transition-colors ${formation.name === key
                                         ? 'bg-green-600 text-white'
                                         : 'text-gray-400 hover:text-white hover:bg-white/10'
-                                        }`}
+                                    }`}
                                 >
                                     {key}
                                 </button>
@@ -99,6 +111,7 @@ export function SetupPage() {
                             <Pitch
                                 gridAssignments={gridAssignments}
                                 positions={formation.positions}
+                                draggingPlayer={draggingPlayer}
                                 onDragStart={handleDragStart}
                                 onDrop={handlePitchDrop}
                             />
