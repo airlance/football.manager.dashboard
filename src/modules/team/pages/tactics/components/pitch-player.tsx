@@ -1,4 +1,5 @@
 import type { Player } from '../data';
+import { setPlayerDragImage } from './drag-image';
 
 interface PitchPlayerProps {
     player: Player;
@@ -6,20 +7,79 @@ interface PitchPlayerProps {
     onDragStart: (e: React.DragEvent<HTMLDivElement>, player: Player, source: 'pitch') => void;
 }
 
+const DUTY_COLOR: Record<string, string> = {
+    attack:  '#8b5cf6',
+    Attack:  '#8b5cf6',
+    support: '#27ae60',
+    Support: '#27ae60',
+    defend:  '#e74c3c',
+    Defend:  '#e74c3c',
+};
+
+const DUTY_ABBR: Record<string, string> = {
+    attack:  'At',
+    Attack:  'At',
+    support: 'Su',
+    Support: 'Su',
+    defend:  'De',
+    Defend:  'De',
+};
+
+function PlayerShirt({ number, isGK }: { number: number; isGK: boolean }) {
+    const shirtColor = isGK ? '#c0392b' : '#1a1a1a';
+    const numberColor = '#f39c12';
+
+    return (
+        <svg width="36" height="36" viewBox="0 0 40 40">
+            {/* Shirt body */}
+            <path
+                d="M8 12 L4 18 L10 20 L10 34 L30 34 L30 20 L36 18 L32 12 L26 10 Q20 14 14 10 Z"
+                fill={shirtColor}
+                stroke="rgba(255,255,255,0.15)"
+                strokeWidth="0.5"
+            />
+            {/* Collar */}
+            <path
+                d="M14 10 Q20 16 26 10"
+                fill="none"
+                stroke="rgba(255,255,255,0.3)"
+                strokeWidth="1"
+            />
+            {/* Sleeve highlights */}
+            <path d="M8 12 L4 18 L10 20 L10 16" fill="rgba(255,255,255,0.08)" />
+            <path d="M32 12 L36 18 L30 20 L30 16" fill="rgba(255,255,255,0.08)" />
+            {/* Number */}
+            <text
+                x="20" y="26"
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize="11"
+                fontWeight="bold"
+                fill={numberColor}
+                fontFamily="Georgia, serif"
+            >
+                {number}
+            </text>
+        </svg>
+    );
+}
+
 export function PitchPlayer({ player, position, onDragStart }: PitchPlayerProps) {
-    const getRoleColor = (duty: string) => {
-        switch (duty.toLowerCase()) {
-            case 'attack': return 'bg-orange-500';
-            case 'support': return 'bg-green-500';
-            case 'defend': return 'bg-blue-500';
-            default: return 'bg-gray-500';
-        }
-    };
+    const isGK = player.position === 'GK';
+    const dutyColor = DUTY_COLOR[player.duty] ?? '#888';
+    const dutyAbbr = DUTY_ABBR[player.duty] ?? player.duty.slice(0, 2);
+
+    // Trim long names: use last word if > 11 chars
+    const shortName =
+        player.name.length > 11 ? player.name.split(' ').pop()! : player.name;
 
     return (
         <div
             draggable
-            onDragStart={(e) => onDragStart(e, player, 'pitch')}
+            onDragStart={(e) => {
+                setPlayerDragImage(e, player);
+                onDragStart(e, player, 'pitch');
+            }}
             style={{
                 position: 'absolute',
                 left: `${position.x}%`,
@@ -27,30 +87,56 @@ export function PitchPlayer({ player, position, onDragStart }: PitchPlayerProps)
                 transform: 'translate(-50%, -50%)',
                 cursor: 'grab',
                 zIndex: 10,
+                userSelect: 'none',
             }}
-            className="flex flex-col items-center group w-24 select-none"
+            className="flex flex-col items-center group"
         >
-            {/* Jersey / Circle */}
-            <div className="relative shadow-xl transition-transform transform group-hover:scale-110">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-600 to-blue-800 border-2 border-white flex items-center justify-center text-white font-bold text-sm shadow-lg ring-2 ring-black/20">
-                    {player.number}
-                </div>
-                {/* Rating / Form Circle indicator - optional */}
-                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center text-[8px] text-white font-bold ${getRoleColor(player.duty)}`}>
-                    {player.duty[0]}
-                </div>
+            {/* Shirt */}
+            <div
+                className="transition-transform group-hover:scale-110"
+                style={{
+                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))',
+                }}
+            >
+                <PlayerShirt number={player.number} isGK={isGK} />
             </div>
 
-            {/* Name Box */}
-            <div className="mt-1 bg-black/80 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow backdrop-blur-sm text-center min-w-[60px] truncate border border-white/10">
-                {player.name}
-            </div>
-
-            {/* Role Box */}
-            <div className="mt-0.5 bg-green-700/90 text-white text-[9px] px-1.5 py-0.5 rounded shadow font-semibold uppercase tracking-wider flex items-center space-x-1 border border-green-600/50">
-                <span>{player.role}</span>
-                <span className="opacity-75">-</span>
-                <span className={`text-[8px] ${player.duty === 'Attack' ? 'text-orange-200' : 'text-blue-100'}`}>{player.duty.substring(0, 2)}</span>
+            {/* Name badge */}
+            <div
+                style={{
+                    background: 'rgba(15,15,25,0.88)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    borderRadius: 4,
+                    padding: '2px 5px',
+                    marginTop: 2,
+                    minWidth: 60,
+                    maxWidth: 80,
+                    textAlign: 'center',
+                    backdropFilter: 'blur(4px)',
+                }}
+            >
+                {/* Role – Duty row */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, marginBottom: 1 }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: '#d4d4d4', letterSpacing: '0.03em', fontFamily: 'monospace' }}>
+                        {player.role}
+                    </span>
+                    <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9 }}>–</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: dutyColor, fontFamily: 'monospace' }}>
+                        {dutyAbbr}
+                    </span>
+                </div>
+                {/* Name */}
+                <div style={{
+                    fontSize: 9.5,
+                    color: '#f0f0f0',
+                    fontWeight: 500,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    fontFamily: 'system-ui, sans-serif',
+                }}>
+                    {shortName}
+                </div>
             </div>
         </div>
     );

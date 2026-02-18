@@ -2,30 +2,30 @@ import { useRef, useState, useEffect } from 'react';
 import type { Player } from '../data';
 import { MoreHorizontal } from 'lucide-react';
 import type { GridPosition } from '../formations';
+import { setPlayerDragImage } from './drag-image';
 
 interface PlayerListProps {
     players: Player[];
     gridAssignments: Record<string, Player>;
-    positions: GridPosition[]; // Formation slots
+    positions: GridPosition[];
     onDragStart: (e: React.DragEvent<HTMLDivElement>, player: Player, source: 'list') => void;
-    onDrop: (e: React.DragEvent<HTMLDivElement>) => void; // For dropping BACK to list
+    onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
     onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
-    onAssign: (player: Player, row: number, col: number) => void; // New prop for menu assignment
+    onAssign: (player: Player, row: number, col: number) => void;
 }
 
 export function PlayerList({ players, gridAssignments, positions, onDragStart, onDrop, onDragOver, onAssign }: PlayerListProps) {
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
-    // Close menu on outside click
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
                 setOpenMenuId(null);
             }
         }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     const toggleMenu = (e: React.MouseEvent, playerId: string) => {
@@ -33,20 +33,16 @@ export function PlayerList({ players, gridAssignments, positions, onDragStart, o
         setOpenMenuId(openMenuId === playerId ? null : playerId);
     };
 
-    // Derived state
     const pitchPlayerIds = Object.values(gridAssignments).map(p => p.id);
 
-    // Sort players: On Pitch first, then by Position/ID
     const sortedPlayers = [...players].sort((a, b) => {
         const aOnPitch = pitchPlayerIds.includes(a.id);
         const bOnPitch = pitchPlayerIds.includes(b.id);
-
         if (aOnPitch && !bOnPitch) return -1;
         if (!aOnPitch && bOnPitch) return 1;
         return 0;
     });
 
-    // Helper to check if a slot is occupied
     const getSlotOccupant = (row: number, col: number) => {
         const key = `${row}-${col}`;
         return gridAssignments[key];
@@ -83,20 +79,25 @@ export function PlayerList({ players, gridAssignments, positions, onDragStart, o
                         <div
                             key={player.id}
                             draggable
-                            onDragStart={(e) => onDragStart(e, player, 'list')}
+                            onDragStart={(e) => {
+                                // ① Красивый drag-ghost
+                                setPlayerDragImage(e, player);
+                                // ② Передаём данные родителю (data-transfer)
+                                onDragStart(e, player, 'list');
+                            }}
                             className={`grid grid-cols-[40px_60px_1fr_30px] gap-2 p-2 border-b border-zinc-800 hover:bg-[#2c3040] items-center cursor-grab select-none relative ${isOnPitch ? 'bg-[#1a4a2c]/20' : ''}`}
                         >
-                            {/* PK (Assigned Indicator) */}
+                            {/* PK */}
                             <div className={`text-center font-bold ${isOnPitch ? 'text-green-400' : 'text-gray-600'}`}>
                                 {isOnPitch ? '✓' : '-'}
                             </div>
 
-                            {/* Natural Position */}
+                            {/* Position */}
                             <div className="text-center font-bold text-blue-300">
                                 {player.position}
                             </div>
 
-                            {/* Player Name & Number - Clickable */}
+                            {/* Name */}
                             <div
                                 className="flex items-center space-x-2 truncate cursor-pointer hover:text-green-400 transition-colors"
                                 onClick={() => window.location.href = `/team/player/${player.id}`}
@@ -104,10 +105,12 @@ export function PlayerList({ players, gridAssignments, positions, onDragStart, o
                                 <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${isOnPitch ? 'bg-green-600' : 'bg-gray-700'}`}>
                                     {player.number}
                                 </div>
-                                <span className={`font-semibold truncate ${isOnPitch ? 'text-green-100' : 'text-white'}`}>{player.name}</span>
+                                <span className={`font-semibold truncate ${isOnPitch ? 'text-green-100' : 'text-white'}`}>
+                                    {player.name}
+                                </span>
                             </div>
 
-                            {/* Menu Button */}
+                            {/* Menu */}
                             <div className="flex justify-end">
                                 <button
                                     onClick={(e) => toggleMenu(e, player.id)}
@@ -126,7 +129,7 @@ export function PlayerList({ players, gridAssignments, positions, onDragStart, o
                                             Assign Position
                                         </div>
                                         <div className="max-h-64 overflow-y-auto">
-                                            {positions.map((pos, idx) => {
+                                            {positions.map((pos) => {
                                                 const occupant = getSlotOccupant(pos.row, pos.col);
                                                 const isSelf = occupant?.id === player.id;
 
@@ -139,7 +142,7 @@ export function PlayerList({ players, gridAssignments, positions, onDragStart, o
                                                             setOpenMenuId(null);
                                                         }}
                                                         disabled={isSelf}
-                                                        className={`w-full text-left px-3 py-2 hover:bg-[#374151] flex items-center justify-between group transition-colors border-b border-zinc-700/50 last:border-0 ${isSelf ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        className={`w-full text-left px-3 py-2 hover:bg-[#374151] flex items-center justify-between transition-colors border-b border-zinc-700/50 last:border-0 ${isSelf ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     >
                                                         <div className="flex items-center space-x-2">
                                                             <span className="font-bold text-yellow-500 w-8">{pos.label}</span>
