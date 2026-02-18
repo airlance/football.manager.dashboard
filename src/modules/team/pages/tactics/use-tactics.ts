@@ -17,20 +17,28 @@ export function useTactics(initialPlayers: Player[]) {
             // Find current slot of this player (if on pitch)
             const fromSlot = Object.entries(next).find(([, p]) => p.id === player.id)?.[0] ?? null;
 
-            // If source existed, remove player from it
+            // Remove player from current slot
             if (fromSlot) delete next[fromSlot];
 
-            // If target has occupant AND player came from pitch → swap
+            // If target has occupant AND player came from pitch → swap occupant to fromSlot
             const occupant = next[toSlotId];
             if (occupant && fromSlot) {
-                next[fromSlot] = occupant;
+                const fromSlotDef = formation.positions.find(s => s.id === fromSlot);
+                // Adapt occupant to the slot it's moving into (fromSlot)
+                next[fromSlot] = fromSlotDef
+                    ? { ...occupant, role: fromSlotDef.defaultRole, duty: fromSlotDef.defaultDuty }
+                    : occupant;
             }
-            // If target has occupant and player from list → replace (occupant goes to bench)
 
-            next[toSlotId] = player;
+            // Adapt player to target slot role/duty
+            const toSlotDef = formation.positions.find(s => s.id === toSlotId);
+            next[toSlotId] = toSlotDef
+                ? { ...player, role: toSlotDef.defaultRole, duty: toSlotDef.defaultDuty }
+                : player;
+
             return next;
         });
-    }, []);
+    }, [formation]);
 
     // ── Remove from pitch ───────────────────────────────────────────────────
     const removePlayer = useCallback((playerId: string) => {
@@ -47,21 +55,15 @@ export function useTactics(initialPlayers: Player[]) {
         const pool = [...initialPlayers];
 
         const popBest = (naturalFor: string[], accomplishedFor: string[]): Player | undefined => {
-            // Try natural match first
             for (const code of naturalFor) {
                 const idx = pool.findIndex(p =>
-                    p.position === code ||
-                    p.position.startsWith(code) ||
-                    code.startsWith(p.position),
+                    p.position === code || p.position.startsWith(code) || code.startsWith(p.position),
                 );
                 if (idx !== -1) return pool.splice(idx, 1)[0];
             }
-            // Then accomplished
             for (const code of accomplishedFor) {
                 const idx = pool.findIndex(p =>
-                    p.position === code ||
-                    p.position.startsWith(code) ||
-                    code.startsWith(p.position),
+                    p.position === code || p.position.startsWith(code) || code.startsWith(p.position),
                 );
                 if (idx !== -1) return pool.splice(idx, 1)[0];
             }
@@ -74,13 +76,16 @@ export function useTactics(initialPlayers: Player[]) {
         const gkSlot = formation.positions.find(s => s.label === 'GK');
         if (gkSlot) {
             const gk = pool.find(p => p.position === 'GK');
-            if (gk) { next[gkSlot.id] = gk; pool.splice(pool.indexOf(gk), 1); }
+            if (gk) {
+                next[gkSlot.id] = { ...gk, role: gkSlot.defaultRole, duty: gkSlot.defaultDuty };
+                pool.splice(pool.indexOf(gk), 1);
+            }
         }
 
         formation.positions.forEach(slot => {
             if (slot.label === 'GK') return;
             const p = popBest(slot.naturalFor, slot.accomplishedFor);
-            if (p) next[slot.id] = p;
+            if (p) next[slot.id] = { ...p, role: slot.defaultRole, duty: slot.defaultDuty };
         });
 
         setAssignments(next);
@@ -93,7 +98,6 @@ export function useTactics(initialPlayers: Player[]) {
     const handleFormationChange = useCallback((newKey: string) => {
         const newFormation = FORMATIONS[newKey];
 
-        // Pool: prefer currently-on-pitch players, then rest
         const onPitch = Object.values(assignments);
         const rest = initialPlayers.filter(p => !onPitch.find(op => op.id === p.id));
         const pool = [...onPitch, ...rest];
@@ -119,12 +123,15 @@ export function useTactics(initialPlayers: Player[]) {
         const gkSlot = newFormation.positions.find(s => s.label === 'GK');
         if (gkSlot) {
             const gk = pool.find(p => p.position === 'GK');
-            if (gk) { next[gkSlot.id] = gk; pool.splice(pool.indexOf(gk), 1); }
+            if (gk) {
+                next[gkSlot.id] = { ...gk, role: gkSlot.defaultRole, duty: gkSlot.defaultDuty };
+                pool.splice(pool.indexOf(gk), 1);
+            }
         }
         newFormation.positions.forEach(slot => {
             if (slot.label === 'GK') return;
             const p = popBest(slot.naturalFor, slot.accomplishedFor);
-            if (p) next[slot.id] = p;
+            if (p) next[slot.id] = { ...p, role: slot.defaultRole, duty: slot.defaultDuty };
         });
 
         setFormationKey(newKey);

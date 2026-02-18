@@ -36,8 +36,6 @@ type Compat = 'natural' | 'accomplished' | 'incompatible';
 
 function getCompat(player: Player, slot: GridPosition): Compat {
     const pos = player.position;
-    if (slot.label === 'GK') return pos === 'GK' ? 'natural' : 'incompatible';
-    if (pos === 'GK') return 'incompatible';
 
     const matches = (codes: string[]) =>
         codes.some(c => pos === c || pos.startsWith(c) || c.startsWith(pos));
@@ -137,7 +135,7 @@ export function PositionSlot({
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
-        e.dataTransfer.dropEffect = compat === 'incompatible' ? 'none' : 'move';
+        e.dataTransfer.dropEffect = 'move';
         setIsDragOver(true);
     };
     const handleDragLeave = () => setIsDragOver(false);
