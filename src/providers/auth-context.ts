@@ -22,7 +22,7 @@ export interface AuthContextType {
     requestPasswordReset: (email: string) => Promise<AuthActionResult>;
     resetPassword: (email: string, code: string, newPassword: string) => Promise<AuthActionResult>;
     confirmAccount: (email: string, code: string) => Promise<AuthActionResult>;
-    logout: () => void;
+    logout: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);

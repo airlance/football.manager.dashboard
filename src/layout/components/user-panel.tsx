@@ -18,6 +18,7 @@ import { useTheme } from 'next-themes';
 import { Avatar, AvatarFallback, AvatarImage, } from '@/components/avatar';
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/providers/auth-context';
 
 type Account = {
   name: string;
@@ -48,8 +49,23 @@ const accounts: Account[] = [
   },
 ];
 
+function getInitials(value: string): string {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return 'U';
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
 export function UserPanel() {
   const { theme, resolvedTheme, setTheme } = useTheme();
+  const { user, logout } = useAuth();
+  const userDisplayName = user?.fullName || user?.username || 'User';
+  const userEmail = user?.email || '';
+  const userInitials = getInitials(userDisplayName);
 
   return (
 		<DropdownMenu>
@@ -58,18 +74,18 @@ export function UserPanel() {
 				'hover:bg-background data-[state=open]:bg-background',
 				'in-data-[sidebar-collapsed=true]:hover:bg-transparent in-data-[sidebar-collapsed=true]:data-[state=open]:bg-transparent',				
 			)}>
-				<div className="flex items-center gap-1.5">  
+				<div className="flex items-center gap-1.5">
 					<Avatar className="size-8 border border-background rounded-full overflow-hidden">
-						<AvatarImage src={toAbsoluteUrl('/media/avatars/300-2.png')} alt="@reui"/>
-						<AvatarFallback className="rounded-md">CH</AvatarFallback>
+						<AvatarImage src={toAbsoluteUrl('/media/avatars/300-2.png')} alt={userDisplayName}/>
+						<AvatarFallback className="rounded-md">{userInitials}</AvatarFallback>
 					</Avatar>
 					<div className="hidden md:flex flex-col items-start gap-0.25 md:in-data-[sidebar-collapsed=true]:hidden">
-						<span className="text-sm font-medium text-foreground leading-none">Alex</span>
-						<span className="text-xs text-muted-foreground font-normal leading-none">alex.bd@gmail.com</span>
+						<span className="text-sm font-medium text-foreground leading-none">{userDisplayName}</span>
+						<span className="text-xs text-muted-foreground font-normal leading-none">{userEmail}</span>
 					</div>
 				</div> 
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end" className="!w-56 lg:w-(--radix-dropdown-menu-trigger-width)"> 
+			<DropdownMenuContent align="end" className="!w-56 lg:w-(--radix-dropdown-menu-trigger-width)">
 				<DropdownMenuGroup>  
 					<DropdownMenuLabel>Accounts</DropdownMenuLabel>
 					{accounts.map((account, index) => (
@@ -89,11 +105,15 @@ export function UserPanel() {
 						<Plus />
 						<span className="ps-1.5">Add Account</span>
 					</DropdownMenuItem>
-					<DropdownMenuItem className="ps-3.5" asChild>
-						<Link to="/logout">
-							<LogOut />
-							<span className="ps-1.5">Logout</span>
-						</Link>
+					<DropdownMenuItem
+						className="ps-3.5"
+						onSelect={(event) => {
+							event.preventDefault();
+							void logout();
+						}}
+					>
+						<LogOut />
+						<span className="ps-1.5">Logout</span>
 					</DropdownMenuItem>
 				</DropdownMenuGroup>  
 				<DropdownMenuSeparator />
@@ -130,9 +150,9 @@ export function UserPanel() {
 				<DropdownMenuSeparator />
 				
 				<div className="px-2 py-1 text-xs text-muted-foreground flex items-center justify-center gap-1.5">
-					<Link className="cursor-pointer hover:text-primary" to="#">Privacy</Link>
+					<Link className="cursor-pointer hover:text-primary" to="/static/privacy">Privacy</Link>
 					<span className="rounded-full size-0.5 bg-muted-foreground/60"></span>
-					<Link className="cursor-pointer hover:text-primary" to="#">Terms</Link>
+					<Link className="cursor-pointer hover:text-primary" to="/static/terms">Terms</Link>
 				</div>                
 			</DropdownMenuContent>
 		</DropdownMenu>

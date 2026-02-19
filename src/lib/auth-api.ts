@@ -69,6 +69,7 @@ function getErrorMessage(body: unknown, fallback: string): string {
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
     const response = await fetch(url, {
         ...init,
+        credentials: init?.credentials ?? 'include',
         headers: buildHeaders(init?.headers),
     });
 

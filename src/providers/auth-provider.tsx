@@ -108,6 +108,21 @@ function getErrorMessage(error: unknown, fallback: string): string {
     return fallback;
 }
 
+function clearClientCookies() {
+    if (typeof document === 'undefined' || !document.cookie) {
+        return;
+    }
+
+    const expires = 'Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie.split(';').forEach((cookie) => {
+        const name = cookie.split('=')[0]?.trim();
+        if (!name) {
+            return;
+        }
+        document.cookie = `${name}=; expires=${expires}; path=/`;
+    });
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(() => getStoredCurrentUser());
     const [isLoading, setIsLoading] = useState<boolean>(() => !!getStoredToken());
@@ -271,8 +286,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    const logout = useCallback(() => {
-        clearAuthSession();
+    const logout = useCallback(async () => {
+        try {
+            await authRequest<{ message?: string }>('/logout', {
+                method: 'POST',
+            });
+        } catch {
+            // Always clear local session, even if server logout request fails.
+        } finally {
+            clearClientCookies();
+            clearAuthSession();
+        }
     }, [clearAuthSession]);
 
     return (
