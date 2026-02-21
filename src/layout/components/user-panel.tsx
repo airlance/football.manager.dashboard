@@ -15,39 +15,10 @@ import {
   DropdownMenuLabel,
 } from '@/components/dropdown-menu';
 import { useTheme } from 'next-themes';
+import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage, } from '@/components/avatar';
-import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/providers/auth-context';
-
-type Account = {
-  name: string;
-  email: string;
-  avatar?: string;
-  avatarFallback?: string;
-  avatarFallbackClassName?: string;
-};
-
-const accounts: Account[] = [
-  {
-    name: 'Support',
-    email: 'support@reui.io',
-    avatar: toAbsoluteUrl('/media/avatars/300-2.png'),
-    avatarFallback: 'S',
-  },
-  {
-    name: 'Finance',
-    email: 'finance@reui.io',
-    avatarFallback: 'F',
-    avatarFallbackClassName: 'bg-green-500 text-white',
-  },
-  {
-    name: 'HR',
-    email: 'hr@reui.io',
-    avatarFallback: 'H',
-    avatarFallbackClassName: 'bg-yellow-500 text-white',
-  },
-];
 
 function getInitials(value: string): string {
   const parts = value.trim().split(/\s+/).filter(Boolean);
@@ -61,8 +32,9 @@ function getInitials(value: string): string {
 }
 
 export function UserPanel() {
+  const navigate = useNavigate();
   const { theme, resolvedTheme, setTheme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, careers, logout } = useAuth();
   const userDisplayName = user?.fullName || user?.username || 'User';
   const userEmail = user?.email || '';
   const userInitials = getInitials(userDisplayName);
@@ -87,23 +59,28 @@ export function UserPanel() {
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="!w-56 lg:w-(--radix-dropdown-menu-trigger-width)">
 				<DropdownMenuGroup>  
-					<DropdownMenuLabel>Accounts</DropdownMenuLabel>
-					{accounts.map((account, index) => (
-						<DropdownMenuItem key={index}>
+					<DropdownMenuLabel>Careers</DropdownMenuLabel>
+					{careers.map((career) => (
+						<DropdownMenuItem key={career.id}>
 							<Avatar className="size-7">
-								{account.avatar && <AvatarImage src={account.avatar} alt="@reui"/>} 
-								{account.avatarFallback && <AvatarFallback className={cn('text-xs', account.avatarFallbackClassName)}>{account.avatarFallback}</AvatarFallback>}
+								<AvatarFallback className="text-xs">{getInitials(career.name)}</AvatarFallback>
 							</Avatar>
 							<div className="flex flex-col items-start gap-0.5">
-								<span className="text-sm font-medium text-foreground leading-none">{account.name}</span>
-								<span className="text-xs text-muted-foreground font-normal leading-none">{account.email}</span>
+								<span className="text-sm font-medium text-foreground leading-none">{career.name}</span>
+								<span className="text-xs text-muted-foreground font-normal leading-none">Career #{career.id}</span>
 							</div>
 						</DropdownMenuItem>
 					))}
 					<DropdownMenuSeparator />
-					<DropdownMenuItem className="ps-3.5">
+					<DropdownMenuItem
+						className="ps-3.5"
+						onSelect={(event) => {
+							event.preventDefault();
+							navigate('/career');
+						}}
+					>
 						<Plus />
-						<span className="ps-1.5">Add Account</span>
+						<span className="ps-1.5">Add Career</span>
 					</DropdownMenuItem>
 					<DropdownMenuItem
 						className="ps-3.5"
@@ -146,16 +123,7 @@ export function UserPanel() {
 						</DropdownMenuRadioGroup>
 					</DropdownMenuSubContent>
 				</DropdownMenuSub>
-
-				<DropdownMenuSeparator />
-				
-				<div className="px-2 py-1 text-xs text-muted-foreground flex items-center justify-center gap-1.5">
-					<Link className="cursor-pointer hover:text-primary" to="/static/privacy">Privacy</Link>
-					<span className="rounded-full size-0.5 bg-muted-foreground/60"></span>
-					<Link className="cursor-pointer hover:text-primary" to="/static/terms">Terms</Link>
-				</div>                
 			</DropdownMenuContent>
 		</DropdownMenu>
   );
 }
-  

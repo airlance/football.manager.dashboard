@@ -9,6 +9,7 @@ interface ModuleRoute {
 }
 
 const AuthModule = lazy(() => import('@/modules/auth'));
+const MainModule = lazy(() => import('@/modules/main'));
 
 const routes: ModuleRoute[] = [
     { path: 'home', module: lazy(() => import('@/modules/home')) },
@@ -30,11 +31,11 @@ const routes: ModuleRoute[] = [
     { path: 'dynamics', module: lazy(() => import('@/modules/dynamics')) },
     { path: 'finances', module: lazy(() => import('@/modules/finances')) },
     { path: 'team', module: lazy(() => import('@/modules/team')) },
-    { path: 'static', module: lazy(() => import('@/modules/static')) },
+    { path: 'career', module: MainModule },
 ];
 
 export function ModuleProvider() {
-    const { isAuthenticated, isLoading } = useAuth();
+    const { isAuthenticated, isLoading, needsOnboarding, needsCareerSelection } = useAuth();
 
     if (isLoading) {
         return <ScreenLoader />;
@@ -56,6 +57,38 @@ export function ModuleProvider() {
         );
     }
 
+    if (needsOnboarding) {
+        return (
+            <Routes>
+                <Route
+                    path="/onboard/*"
+                    element={
+                        <Suspense fallback={<ScreenLoader />}>
+                            <MainModule />
+                        </Suspense>
+                    }
+                />
+                <Route path="*" element={<Navigate to="/onboard" replace />} />
+            </Routes>
+        );
+    }
+
+    if (needsCareerSelection) {
+        return (
+            <Routes>
+                <Route
+                    path="/career/*"
+                    element={
+                        <Suspense fallback={<ScreenLoader />}>
+                            <MainModule />
+                        </Suspense>
+                    }
+                />
+                <Route path="*" element={<Navigate to="/career" replace />} />
+            </Routes>
+        );
+    }
+
     return (
         <Routes>
             {routes.map(({ path, module: Module }) => (
@@ -69,8 +102,9 @@ export function ModuleProvider() {
                     }
                 />
             ))}
-            <Route path="/auth/*" element={<Navigate to="/home" replace />} />
-            <Route path="*" element={<Navigate to="/home" replace />} />
+            <Route path="/onboard/*" element={<Navigate to="/career" replace />} />
+            <Route path="/auth/*" element={<Navigate to="/career" replace />} />
+            <Route path="*" element={<Navigate to="/career" replace />} />
         </Routes>
     );
 }

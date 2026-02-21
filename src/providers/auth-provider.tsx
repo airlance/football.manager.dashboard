@@ -1,10 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
-import { AuthContext, type AuthActionResult, type User } from './auth-context';
+import { AuthContext, type AuthActionResult, type User, type Career } from './auth-context';
 import type { ReactNode } from 'react';
-import { AUTH_TOKEN_KEY, authRequest, usersRequest, ApiRequestError } from '@/lib/auth-api';
+import { AUTH_TOKEN_KEY, authRequest, usersRequest, managersRequest, careersRequest, ApiRequestError } from '@/lib/auth-api';
 
 const AUTH_USER_KEY = 'fm-auth-user';
 const LEGACY_AUTH_USERS_KEY = 'fm-auth-users';
+const ACTIVE_CAREER_ID_KEY = 'fm-active-career-id';
 
 type AuthResponse = {
     message?: string;
@@ -18,6 +19,7 @@ type AuthResponse = {
         jwt?: string;
         user?: ApiUser;
     };
+    onboarding_required?: boolean;
 };
 
 type ApiUser = {
@@ -26,6 +28,10 @@ type ApiUser = {
     fullName?: string;
     name?: string;
     email?: string;
+};
+
+type CareersResponse = {
+    careers?: Career[];
 };
 
 function getStoredCurrentUser(): User | null {
@@ -126,11 +132,28 @@ function clearClientCookies() {
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(() => getStoredCurrentUser());
     const [isLoading, setIsLoading] = useState<boolean>(() => !!getStoredToken());
+    const [needsOnboarding, setNeedsOnboarding] = useState(false);
+    const [needsCareerSelection, setNeedsCareerSelection] = useState(false);
+    const [careers, setCareers] = useState<Career[]>([]);
+    const [activeCareerId, setActiveCareerId] = useState<number | null>(() => {
+        const raw = localStorage.getItem(ACTIVE_CAREER_ID_KEY);
+        if (!raw) {
+            return null;
+        }
+
+        const parsed = Number(raw);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    });
 
     const isAuthenticated = user !== null;
     const clearAuthSession = useCallback(() => {
         localStorage.removeItem(AUTH_TOKEN_KEY);
         setUser(null);
+        setNeedsOnboarding(false);
+        setNeedsCareerSelection(false);
+        setCareers([]);
+        setActiveCareerId(null);
+        localStorage.removeItem(ACTIVE_CAREER_ID_KEY);
     }, []);
 
     useEffect(() => {
@@ -144,6 +167,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             localStorage.removeItem(AUTH_USER_KEY);
         }
     }, [user]);
+
+    useEffect(() => {
+        if (activeCareerId && activeCareerId > 0) {
+            localStorage.setItem(ACTIVE_CAREER_ID_KEY, String(activeCareerId));
+            return;
+        }
+
+        localStorage.removeItem(ACTIVE_CAREER_ID_KEY);
+    }, [activeCareerId]);
 
     const hydrateCurrentUser = useCallback(async (): Promise<User | null> => {
         try {
@@ -164,20 +196,82 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch {
             clearAuthSession();
             return null;
-        } finally {
-            setIsLoading(false);
         }
     }, [clearAuthSession]);
+
+    const syncOnboardingState = useCallback(async (): Promise<boolean> => {
+        try {
+            await managersRequest<{ manager?: unknown }>('/me');
+            setNeedsOnboarding(false);
+            return false;
+        } catch (error) {
+            if (error instanceof ApiRequestError && error.status === 404) {
+                setNeedsOnboarding(true);
+                return true;
+            }
+            clearAuthSession();
+            throw error;
+        }
+    }, [clearAuthSession]);
+
+    const syncCareerState = useCallback(async (): Promise<void> => {
+        let response: CareersResponse;
+        try {
+            response = await careersRequest<CareersResponse>('/me');
+        } catch (error) {
+            if (error instanceof ApiRequestError && error.status === 404) {
+                setNeedsOnboarding(true);
+                setNeedsCareerSelection(false);
+                setCareers([]);
+                setActiveCareerId(null);
+                return;
+            }
+            throw error;
+        }
+        const list = Array.isArray(response.careers) ? response.careers : [];
+        setCareers(list);
+
+        if (list.length === 0) {
+            setActiveCareerId(null);
+            setNeedsCareerSelection(true);
+            return;
+        }
+
+        if (list.length === 1) {
+            setActiveCareerId(list[0].id);
+            setNeedsCareerSelection(false);
+            return;
+        }
+
+        const current = activeCareerId;
+        const exists = current !== null && list.some((career) => career.id === current);
+        if (exists) {
+            setNeedsCareerSelection(false);
+            return;
+        }
+
+        setActiveCareerId(null);
+        setNeedsCareerSelection(true);
+    }, [activeCareerId]);
 
     const validateSessionOnRefresh = useCallback(async (): Promise<void> => {
         try {
             await authRequest<{ status: string }>('/check');
             await hydrateCurrentUser();
+            const onboardingRequired = await syncOnboardingState();
+            if (!onboardingRequired) {
+                await syncCareerState();
+            } else {
+                setNeedsCareerSelection(false);
+                setCareers([]);
+                setActiveCareerId(null);
+            }
         } catch {
             clearAuthSession();
+        } finally {
             setIsLoading(false);
         }
-    }, [clearAuthSession, hydrateCurrentUser]);
+    }, [clearAuthSession, hydrateCurrentUser, syncOnboardingState, syncCareerState]);
 
     useEffect(() => {
         const token = getStoredToken();
@@ -214,11 +308,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return { success: false, error: 'Login succeeded, but user data was not returned' };
             }
 
-            return { success: true, message: response.message };
+            let requiresOnboarding: boolean;
+            if (typeof response.onboarding_required === 'boolean') {
+                requiresOnboarding = response.onboarding_required;
+                setNeedsOnboarding(requiresOnboarding);
+            } else {
+                requiresOnboarding = await syncOnboardingState();
+            }
+
+            if (!requiresOnboarding) {
+                await syncCareerState();
+            } else {
+                setNeedsCareerSelection(false);
+                setCareers([]);
+                setActiveCareerId(null);
+            }
+
+            return { success: true, message: response.message, requiresOnboarding };
         } catch (error) {
             return { success: false, error: getErrorMessage(error, 'Login failed') };
         }
-    }, [hydrateCurrentUser]);
+    }, [hydrateCurrentUser, syncOnboardingState, syncCareerState]);
 
     const register = useCallback(async (username: string, fullName: string, email: string, password: string): Promise<AuthActionResult> => {
         try {
@@ -272,18 +382,101 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const confirmAccount = useCallback(async (email: string, code: string): Promise<AuthActionResult> => {
         try {
-            const response = await authRequest<{ message?: string }>('/verify-email', {
+            const response = await authRequest<AuthResponse>('/verify-email', {
                 method: 'POST',
                 body: JSON.stringify({ email, code }),
             });
 
+            const token = extractToken(response);
+            if (token) {
+                localStorage.setItem(AUTH_TOKEN_KEY, token);
+            }
+
+            let nextUser = extractUser(response);
+            if (nextUser) {
+                setUser(nextUser);
+            } else if (token) {
+                nextUser = await hydrateCurrentUser();
+            }
+
+            if (!nextUser) {
+                return { success: false, error: 'Account confirmed, but user data was not returned' };
+            }
+
+            let requiresOnboarding: boolean;
+            if (typeof response.onboarding_required === 'boolean') {
+                requiresOnboarding = response.onboarding_required;
+                setNeedsOnboarding(requiresOnboarding);
+            } else {
+                requiresOnboarding = await syncOnboardingState();
+            }
+
+            if (!requiresOnboarding) {
+                await syncCareerState();
+            } else {
+                setNeedsCareerSelection(false);
+                setCareers([]);
+                setActiveCareerId(null);
+            }
+
             return {
                 success: true,
                 message: response.message || 'Account confirmed successfully',
+                requiresOnboarding,
             };
         } catch (error) {
             return { success: false, error: getErrorMessage(error, 'Could not confirm account') };
         }
+    }, [hydrateCurrentUser, syncOnboardingState, syncCareerState]);
+
+    const completeOnboarding = useCallback(async (firstName: string, lastName: string, birthday: string): Promise<AuthActionResult> => {
+        try {
+            const response = await managersRequest<{ message?: string }>('/me', {
+                method: 'POST',
+                body: JSON.stringify({
+                    first_name: firstName,
+                    last_name: lastName,
+                    birthday,
+                }),
+            });
+
+            setNeedsOnboarding(false);
+            await syncCareerState();
+            return {
+                success: true,
+                message: response.message || 'Manager profile created',
+            };
+        } catch (error) {
+            return { success: false, error: getErrorMessage(error, 'Could not create manager profile') };
+        }
+    }, [syncCareerState]);
+
+    const createCareer = useCallback(async (name: string): Promise<AuthActionResult> => {
+        try {
+            const response = await careersRequest<{ message?: string; career?: Career }>('/me', {
+                method: 'POST',
+                body: JSON.stringify({ name }),
+            });
+
+            await syncCareerState();
+
+            if (response.career?.id) {
+                setActiveCareerId(response.career.id);
+                setNeedsCareerSelection(false);
+            }
+
+            return {
+                success: true,
+                message: response.message || 'Career created',
+            };
+        } catch (error) {
+            return { success: false, error: getErrorMessage(error, 'Could not create career') };
+        }
+    }, [syncCareerState]);
+
+    const selectCareer = useCallback((careerId: number) => {
+        setActiveCareerId(careerId);
+        setNeedsCareerSelection(false);
     }, []);
 
     const logout = useCallback(async () => {
@@ -304,12 +497,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             value={{
                 isAuthenticated,
                 isLoading,
+                needsOnboarding,
+                needsCareerSelection,
+                careers,
+                activeCareerId,
                 user,
                 login,
                 register,
                 requestPasswordReset,
                 resetPassword,
                 confirmAccount,
+                completeOnboarding,
+                createCareer,
+                selectCareer,
                 logout,
             }}
         >

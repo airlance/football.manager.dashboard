@@ -27,7 +27,7 @@ export function LoginPage() {
 
         if (result.success) {
             toast.success(result.message || 'Welcome back, Manager!');
-            navigate('/home', { replace: true });
+            navigate(result.requiresOnboarding ? '/onboard' : '/career', { replace: true });
         } else {
             toast.error(result.error || 'Login failed');
         }

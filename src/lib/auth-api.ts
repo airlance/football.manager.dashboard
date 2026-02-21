@@ -1,6 +1,8 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const AUTH_API_BASE = `${API_BASE}/auth`;
 const USERS_API_BASE = `${API_BASE}/users`;
+const MANAGERS_API_BASE = `${API_BASE}/managers`;
+const CAREERS_API_BASE = `${API_BASE}/careers`;
 
 export const AUTH_TOKEN_KEY = 'fm-auth-token';
 
@@ -88,4 +90,12 @@ export function authRequest<T>(path: string, init?: RequestInit) {
 
 export function usersRequest<T>(path: string, init?: RequestInit) {
     return request<T>(`${USERS_API_BASE}${path}`, init);
+}
+
+export function managersRequest<T>(path: string, init?: RequestInit) {
+    return request<T>(`${MANAGERS_API_BASE}${path}`, init);
+}
+
+export function careersRequest<T>(path: string, init?: RequestInit) {
+    return request<T>(`${CAREERS_API_BASE}${path}`, init);
 }

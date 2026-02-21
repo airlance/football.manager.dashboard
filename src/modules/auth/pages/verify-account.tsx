@@ -38,10 +38,7 @@ export function VerifyAccountPage() {
         }
 
         toast.success(result.message || 'Account confirmed successfully');
-        navigate('/auth/login', {
-            replace: true,
-            state: { email: email.trim() },
-        });
+        navigate(result.requiresOnboarding ? '/onboard' : '/career', { replace: true });
     };
 
     return (
